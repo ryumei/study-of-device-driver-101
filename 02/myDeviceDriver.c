@@ -29,6 +29,7 @@ static int myDevice_close(struct inode *inode, struct file *file) {
 /* on read */
 static ssize_t myDevice_read(struct file *filep, char __user *buf, size_t count, loff_t *f_pos) {
     printk("myDevice_read\n");
+    /* NOTE: will trigger segmentation fault, MUST use copy_to_user. see also '04' part and https://stackoverflow.com/questions/39515407/how-to-handle-a-page-domain-fault-in-a-self-written-character-device-kernel-modu */
     buf[0] = 'A';
     return 1;
 }
