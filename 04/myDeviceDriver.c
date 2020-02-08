@@ -32,8 +32,8 @@ static unsigned int mydevice_major;
 static struct cdev mydevice_cdev;
 
 /* on open */
-static int myDevice_open(struct inode *inode, struct file *file) {
-    printk("myDevice_open\n");
+static int mydevice_open(struct inode *inode, struct file *file) {
+    printk("mydevice_open\n");
     
     /* allocate */
     struct _mydevice_file_data *p = kmalloc(sizeof(struct _mydevice_file_data), GFP_KERNEL);
@@ -51,8 +51,8 @@ static int myDevice_open(struct inode *inode, struct file *file) {
 }
 
 /* on close */
-static int myDevice_close(struct inode *inode, struct file *file) {
-    printk("myDevice_close\n");
+static int mydevice_close(struct inode *inode, struct file *file) {
+    printk("mydevice_close\n");
 
     if (file->private_data) {
         kfree(file->private_data);
@@ -63,8 +63,8 @@ static int myDevice_close(struct inode *inode, struct file *file) {
 }
 
 /* on read */
-static ssize_t myDevice_read(struct file *filep, char __user *buf, size_t count, loff_t *f_pos) {
-    printk("myDevice_read\n");
+static ssize_t mydevice_read(struct file *filep, char __user *buf, size_t count, loff_t *f_pos) {
+    printk("mydevice_read\n");
     if (count > NUM_BUFFER) count = NUM_BUFFER;
 
     struct _mydevice_file_data *p = filep->private_data;
@@ -75,8 +75,8 @@ static ssize_t myDevice_read(struct file *filep, char __user *buf, size_t count,
 }
 
 /* on write */
-static ssize_t myDevice_write(struct file *filep, const char __user *buf, size_t count, loff_t *f_pos) {
-    printk("myDevice_write\n");
+static ssize_t mydevice_write(struct file *filep, const char __user *buf, size_t count, loff_t *f_pos) {
+    printk("mydevice_write\n");
 
     struct _mydevice_file_data *p = filep->private_data;
     if (arm_copy_from_user(p->buffer, buf, count) != 0) {
@@ -87,16 +87,16 @@ static ssize_t myDevice_write(struct file *filep, const char __user *buf, size_t
 }
 
 /* handler table for system calls */
-struct file_operations s_myDevice_fops = {
-    .open    = myDevice_open,
-    .release = myDevice_close,
-    .read    = myDevice_read,
-    .write   = myDevice_write,
+struct file_operations s_mydevice_fops = {
+    .open    = mydevice_open,
+    .release = mydevice_close,
+    .read    = mydevice_read,
+    .write   = mydevice_write,
 };
 
 /* on load (insmod) */
-static int myDevice_init(void) {
-    printk("myDevice_init\n");
+static int mydevice_init(void) {
+    printk("mydevice_init\n");
 
     int alloc_ret = 0;
     int cdev_err = 0;
@@ -114,7 +114,7 @@ static int myDevice_init(void) {
     dev = MKDEV(mydevice_major, MINOR_BASE); /* reconfirm (no needed?) */
   
     /* 3. init cdev struct and register systemcall handler */
-    cdev_init(&mydevice_cdev, &s_myDevice_fops);
+    cdev_init(&mydevice_cdev, &s_mydevice_fops);
     mydevice_cdev.owner = THIS_MODULE;
 
     /* 4. Register this driver (cdev) to the kernel */
@@ -129,8 +129,8 @@ static int myDevice_init(void) {
 }
 
 /* on unload (rmmod) */
-static void myDevice_exit(void) {
-    printk("myDevice_exit\n");
+static void mydevice_exit(void) {
+    printk("mydevice_exit\n");
 
     dev_t dev = MKDEV(mydevice_major, MINOR_BASE);
 
@@ -141,6 +141,6 @@ static void myDevice_exit(void) {
     unregister_chrdev_region(dev, MINOR_NUM);
 }
 
-module_init(myDevice_init);
-module_exit(myDevice_exit);
+module_init(mydevice_init);
+module_exit(mydevice_exit);
 
