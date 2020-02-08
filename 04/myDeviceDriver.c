@@ -1,5 +1,5 @@
 /*
- * 3. Dynamic driver loading
+ * 4. Dynamic driver loading
  */
 #include <linux/init.h>
 #include <linux/module.h>
@@ -8,6 +8,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 #include <asm/current.h>
 #include <asm/uaccess.h>
 
@@ -16,7 +17,9 @@ MODULE_LICENSE("Dual BSD/GPL");
 #define DRIVER_NAME "MyDevice"
 
 #define NUM_BUFFER 256
-static char stored_value[NUM_BUFFER];
+struct _mydevice_file_data {
+    unsigned char buffer[NUM_BUFFER];
+};
 
 /* minor number */
 static const unsigned int MINOR_BASE = 0;
@@ -31,12 +34,31 @@ static struct cdev mydevice_cdev;
 /* on open */
 static int myDevice_open(struct inode *inode, struct file *file) {
     printk("myDevice_open\n");
+    
+    /* allocate */
+    struct _mydevice_file_data *p = kmalloc(sizeof(struct _mydevice_file_data), GFP_KERNEL);
+    if (p == NULL) {
+        printk(KERN_ERR "kmalloc\n");
+        return -ENOMEM;
+    }
+    /* initialize file intrinsic data */
+    strlcat(p->buffer, "dummy", 5);
+
+    /* keep pointers by fd of user side */
+    file->private_data = p;
+
     return 0;
 }
 
 /* on close */
 static int myDevice_close(struct inode *inode, struct file *file) {
     printk("myDevice_close\n");
+
+    if (file->private_data) {
+        kfree(file->private_data);
+        file->private_data = NULL;
+    }
+
     return 0;
 }
 
@@ -44,7 +66,9 @@ static int myDevice_close(struct inode *inode, struct file *file) {
 static ssize_t myDevice_read(struct file *filep, char __user *buf, size_t count, loff_t *f_pos) {
     printk("myDevice_read\n");
     if (count > NUM_BUFFER) count = NUM_BUFFER;
-    if (arm_copy_to_user(buf, stored_value, count) != 0) {
+
+    struct _mydevice_file_data *p = filep->private_data;
+    if (arm_copy_to_user(buf, p->buffer, count) != 0) {
         return -EFAULT;
     }
     return count;
@@ -53,10 +77,12 @@ static ssize_t myDevice_read(struct file *filep, char __user *buf, size_t count,
 /* on write */
 static ssize_t myDevice_write(struct file *filep, const char __user *buf, size_t count, loff_t *f_pos) {
     printk("myDevice_write\n");
-    if (arm_copy_from_user(stored_value, buf, count) != 0) {
+
+    struct _mydevice_file_data *p = filep->private_data;
+    if (arm_copy_from_user(p->buffer, buf, count) != 0) {
         return -EFAULT;
     }
-    printk("%s\n", stored_value);
+    /*printk("%s\n", stored_value);*/
     return count;
 }
 
