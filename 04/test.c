@@ -9,7 +9,7 @@ int main()
     char buff[256];
     int fd0_A, fd0_B, fd1_A;
 
-    printf("%08X\n", buff);
+    printf("%8s\n", buff);
 
     if ((fd0_A = open("/dev/mydevice0", O_RDWR)) < 0) perror("open");
     if ((fd0_B = open("/dev/mydevice0", O_RDWR)) < 0) perror("open");

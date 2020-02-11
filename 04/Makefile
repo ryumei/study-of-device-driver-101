@@ -20,9 +20,7 @@ MyDeviceModule.ko: $(CFILES)
 .PHONY: clean
 clean:
 	sudo rmmod MyDeviceModule
-	sudo rm /dev/mydevice0
-	sudo rm /dev/mydevice1
-	sudo rm /dev/mydevice2
+	sudo rm -f /dev/mydevice[012]
 
 .PHONY:
 distclean: clean
@@ -32,13 +30,17 @@ distclean: clean
 load: install-module /dev/mydevice0 /dev/mydevice1 /dev/mydevice2
 
 .PHONY: install-module
-install-module: 
+install-module: MyDeviceModule.ko
 	sudo insmod MyDeviceModule.ko
 
 /dev/mydevice0:
 	sudo mknod --mode=666 $@ c $(shell grep MyDevice /proc/devices | awk '{print $$1;}') 0
+	sudo chmod 666 $@
+
 /dev/mydevice1:
 	sudo mknod --mode=666 $@ c $(shell grep MyDevice /proc/devices | awk '{print $$1;}') 1
+	sudo chmod 666 $@
+
 /dev/mydevice2:
 	sudo mknod --mode=666 $@ c $(shell grep MyDevice /proc/devices | awk '{print $$1;}') 2
 

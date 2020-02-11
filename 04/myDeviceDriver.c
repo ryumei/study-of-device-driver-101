@@ -8,6 +8,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/sched.h>
+#include <linux/device.h>
 #include <linux/slab.h>
 #include <asm/current.h>
 #include <asm/uaccess.h>
@@ -17,19 +18,17 @@ MODULE_LICENSE("Dual BSD/GPL");
 #define DRIVER_NAME "MyDevice"
 
 #define NUM_BUFFER 256
-struct _mydevice_file_data {
-    unsigned char buffer[NUM_BUFFER];
-};
-
 /* minor number */
 static const unsigned int MINOR_BASE = 0;
 static const unsigned int MINOR_NUM  = 2;
-
 /* major number (dynamic assigned) */
 static unsigned int mydevice_major;
-
 /* character device object */
 static struct cdev mydevice_cdev;
+static struct class *mydevice_class = NULL;
+struct _mydevice_file_data {
+    unsigned char buffer[NUM_BUFFER];
+};
 
 /* on open */
 static int mydevice_open(struct inode *inode, struct file *file) {
@@ -68,7 +67,7 @@ static ssize_t mydevice_read(struct file *filep, char __user *buf, size_t count,
     if (count > NUM_BUFFER) count = NUM_BUFFER;
 
     struct _mydevice_file_data *p = filep->private_data;
-    if (arm_copy_to_user(buf, p->buffer, count) != 0) {
+    if (raw_copy_to_user(buf, p->buffer, count) != 0) {
         return -EFAULT;
     }
     return count;
@@ -79,7 +78,7 @@ static ssize_t mydevice_write(struct file *filep, const char __user *buf, size_t
     printk("mydevice_write\n");
 
     struct _mydevice_file_data *p = filep->private_data;
-    if (arm_copy_from_user(p->buffer, buf, count) != 0) {
+    if (raw_copy_from_user(p->buffer, buf, count) != 0) {
         return -EFAULT;
     }
     /*printk("%s\n", stored_value);*/
@@ -125,6 +124,20 @@ static int mydevice_init(void) {
         return -1;
     }
 
+    /* 5. register class for this device */
+    mydevice_class = class_create(THIS_MODULE, "mydevice");
+    if (IS_ERR(mydevice_class)) {
+        printk(KERN_ERR "class_create\n");
+        cdev_del(&mydevice_cdev);
+        unregister_chrdev_region(dev, MINOR_NUM);
+        return -1;
+    }
+
+    /* 6. Create /sys/class/mydevice/mydevice* */
+    for (int minor = MINOR_BASE; minor < MINOR_BASE + MINOR_NUM; minor++) {
+        device_create(mydevice_class, NULL, MKDEV(mydevice_major, minor), NULL, "mydevice%d", minor);
+    }
+
     return 0;
 }
 
@@ -134,10 +147,18 @@ static void mydevice_exit(void) {
 
     dev_t dev = MKDEV(mydevice_major, MINOR_BASE);
 
-    /* 5. Remove this driver (cdev) from the kernel */
+    /* 7. Delete /sys/class/mydevice/mydevice* */
+    for (int minor = MINOR_BASE; minor < MINOR_BASE + MINOR_NUM; minor++) {
+        device_destroy(mydevice_class, MKDEV(mydevice_major, minor));
+    }
+
+    /* 8. Remove class registration for this device */
+    class_destroy(mydevice_class);
+
+    /* 9. Remove this driver (cdev) from the kernel */
     cdev_del(&mydevice_cdev);
 
-    /* 6. Remove registered major number for this driver */
+    /* 10. Remove registered major number for this driver */
     unregister_chrdev_region(dev, MINOR_NUM);
 }
 
